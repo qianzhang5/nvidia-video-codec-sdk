@@ -51,9 +51,9 @@ impl Session {
     /// or if we run out of memory.
     ///
     /// # Warn
-    /// There is a flaw in the encoder InputBuffer design, which misses buffer size and pitch size. because a buffer is alloacted inside driver and not expose to user memory layout of buffer to a image format.
-    /// we use a guess (good guess) memory layout with InputBuf.
-    /// another solution is to use cuda memory as InputBuffer, which memory layout is under controlled to appliaction that SDK examples use.
+    /// There is a flaw in the encoder `InputBuffer` design, which misses buffer size and pitch size. because a buffer is alloacted inside driver and not expose to user memory layout of buffer to a image format.
+    /// we use a guess (good guess) memory layout with `InputBuf`.
+    /// another solution is to use cuda memory as `InputBuffer`, which memory layout is under controlled to appliaction that SDK examples use.
     /// # Examples
     ///
     /// ```
@@ -350,7 +350,7 @@ impl Buffer {
     ///     .unwrap();
     /// unsafe { input_buffer.lock().unwrap().write(&[0; DATA_LEN]) };
     /// ```
-    pub fn lock<'b>(&'b mut self) -> Result<BufferLock<'b>, EncodeError> {
+    pub fn lock(&mut self) -> Result<BufferLock<'_>, EncodeError> {
         self.lock_inner(true)
     }
 
@@ -371,12 +371,12 @@ impl Buffer {
     /// [`ErrorKind::LockBusy`](super::ErrorKind::LockBusy) then that means the
     /// lock is still busy and the client should retry in a few
     /// milliseconds.
-    pub fn try_lock<'b>(&'b mut self) -> Result<BufferLock<'b>, EncodeError> {
+    pub fn try_lock(&mut self) -> Result<BufferLock<'_>, EncodeError> {
         self.lock_inner(false)
     }
 
     #[inline]
-    fn lock_inner<'b>(&'b mut self, wait: bool) -> Result<BufferLock<'b>, EncodeError> {
+    fn lock_inner(&mut self, wait: bool) -> Result<BufferLock<'_>, EncodeError> {
         let mut lock_input_buffer_params = NV_ENC_LOCK_INPUT_BUFFER {
             version: NV_ENC_LOCK_INPUT_BUFFER_VER,
             inputBuffer: self.ptr,
@@ -388,7 +388,7 @@ impl Buffer {
         unsafe {
             (ENCODE_API.lock_input_buffer)((*self.encoder).ptr, &mut lock_input_buffer_params)
         }
-        .result(&*self.encoder)?;
+        .result(&self.encoder)?;
 
         let data_ptr = lock_input_buffer_params.bufferDataPtr;
         let pitch = lock_input_buffer_params.pitch;
@@ -405,21 +405,29 @@ impl Buffer {
     }
 
     /// return image width which may be smaller than image pitch.
+    #[inline]
+    #[must_use]
     pub fn width(&self) -> u32 {
         self.pitch
     }
 
     /// return image height
+    #[inline]
+    #[must_use]
     pub fn height(&self) -> u32 {
         self.height
     }
 
     ///return data pitch of image in Buffer
+    #[inline]
+    #[must_use]
     pub fn pitch(&self) -> u32 {
         self.pitch
     }
 
     ///return image data format
+    #[inline]
+    #[must_use]
     pub fn image_format(&self) -> NV_ENC_BUFFER_FORMAT {
         self.buffer_format
     }
@@ -428,7 +436,7 @@ impl Buffer {
 impl Drop for Buffer {
     fn drop(&mut self) {
         unsafe { (ENCODE_API.destroy_input_buffer)((*self.encoder).ptr, self.ptr) }
-            .result(&*self.encoder)
+            .result(&self.encoder)
             .expect("The encoder and buffer pointers should be valid.");
     }
 }
@@ -469,8 +477,9 @@ pub struct BufferLock<'a> {
 
 impl BufferLock<'_> {
     /// Write data to the buffer.
-    ///
     /// contiguously.
+    /// # Errors
+    /// buffer over-run, write data length is longer than buffer size.
     pub fn write(&mut self, data: &[u8]) -> Result<usize, EncodeError> {
         if data.len() < self.size as usize {
             return Err(EncodeError::new(crate::ErrorKind::OutOfMemory, None));
@@ -491,7 +500,7 @@ impl BufferLock<'_> {
 impl Drop for BufferLock<'_> {
     fn drop(&mut self) {
         unsafe { (ENCODE_API.unlock_input_buffer)(self.buffer.encoder.ptr, self.buffer.ptr) }
-            .result(&*self.buffer.encoder)
+            .result(&self.buffer.encoder)
             .expect("The encoder and buffer pointers should be valid.");
     }
 }
@@ -554,7 +563,7 @@ impl Bitstream {
             lock_bitstream_buffer_params.set_doNotWait(1);
         }
         unsafe { (ENCODE_API.lock_bitstream)(self.encoder.ptr, &mut lock_bitstream_buffer_params) }
-            .result(&*self.encoder)?;
+            .result(&self.encoder)?;
 
         // Get data.
         let data_ptr = lock_bitstream_buffer_params.bitstreamBufferPtr;
@@ -575,7 +584,7 @@ impl Bitstream {
 impl Drop for Bitstream {
     fn drop(&mut self) {
         unsafe { (ENCODE_API.destroy_bitstream_buffer)(self.encoder.ptr, self.ptr) }
-            .result(&*self.encoder)
+            .result(&self.encoder)
             .expect("The encoder and bitstream pointers should be valid.");
     }
 }
@@ -638,7 +647,7 @@ impl BitstreamLock<'_> {
 impl Drop for BitstreamLock<'_> {
     fn drop(&mut self) {
         unsafe { (ENCODE_API.unlock_bitstream)(self.bitstream.encoder.ptr, self.bitstream.ptr) }
-            .result(&*self.bitstream.encoder)
+            .result(&self.bitstream.encoder)
             .expect("The encoder and bitstream pointers should be valid.");
     }
 }

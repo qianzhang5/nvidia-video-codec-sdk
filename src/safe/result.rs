@@ -119,7 +119,8 @@ pub struct EncodeError {
 }
 
 impl EncodeError {
-    ///manuallay create a EncodeError.
+    ///manuallay create a `encodeerror`.
+    #[must_use]
     pub fn new(kind: ErrorKind, string: Option<String>) -> Self {
         Self { kind, string }
     }

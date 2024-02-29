@@ -191,7 +191,7 @@ impl Session {
             ..Default::default()
         };
         unsafe { (ENCODE_API.encode_picture)((*self.encoder).ptr, &mut encode_pic_params) }
-            .result(&*self.encoder)
+            .result(&self.encoder)
     }
 
     /// Send an EOS notifications to flush the encoder.
@@ -209,7 +209,7 @@ impl Session {
     pub fn end_of_stream(&self) -> Result<(), EncodeError> {
         let mut encode_pic_params = NV_ENC_PIC_PARAMS::end_of_stream();
         unsafe { (ENCODE_API.encode_picture)((*self.encoder).ptr, &mut encode_pic_params) }
-            .result(&*self.encoder)
+            .result(&self.encoder)
     }
 }
 
