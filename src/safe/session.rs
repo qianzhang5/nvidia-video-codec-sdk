@@ -6,26 +6,17 @@
 //! width and height so that you do not have to keep repeating it each time.
 
 use std::fmt::Debug;
+use std::sync::Arc;
 
 use super::{api::ENCODE_API, encoder::Encoder, result::EncodeError};
 use crate::{
     sys::nvEncodeAPI::{
-        GUID,
-        NV_ENC_BUFFER_FORMAT,
-        NV_ENC_CODEC_AV1_GUID,
-        NV_ENC_CODEC_H264_GUID,
-        NV_ENC_CODEC_HEVC_GUID,
-        NV_ENC_CODEC_PIC_PARAMS,
-        NV_ENC_PIC_PARAMS,
-        NV_ENC_PIC_PARAMS_AV1,
-        NV_ENC_PIC_PARAMS_H264,
-        NV_ENC_PIC_PARAMS_HEVC,
-        NV_ENC_PIC_PARAMS_VER,
-        NV_ENC_PIC_STRUCT,
+        GUID, NV_ENC_BUFFER_FORMAT, NV_ENC_CODEC_AV1_GUID, NV_ENC_CODEC_H264_GUID,
+        NV_ENC_CODEC_HEVC_GUID, NV_ENC_CODEC_PIC_PARAMS, NV_ENC_PIC_PARAMS, NV_ENC_PIC_PARAMS_AV1,
+        NV_ENC_PIC_PARAMS_H264, NV_ENC_PIC_PARAMS_HEVC, NV_ENC_PIC_PARAMS_VER, NV_ENC_PIC_STRUCT,
         NV_ENC_PIC_TYPE,
     },
-    EncoderInput,
-    EncoderOutput,
+    EncoderInput, EncoderOutput,
 };
 
 /// An encoding session to create input/output buffers and encode frames.
@@ -35,7 +26,7 @@ use crate::{
 /// send an empty EOS frame to flush the encoder.
 #[derive(Debug)]
 pub struct Session {
-    pub(crate) encoder: Encoder,
+    pub(crate) encoder: Arc<Encoder>,
     pub(crate) width: u32,
     pub(crate) height: u32,
     pub(crate) buffer_format: NV_ENC_BUFFER_FORMAT,
@@ -81,6 +72,7 @@ impl Session {
     ///     .get_supported_input_formats(encode_guid);
     /// ```
     #[must_use]
+    #[inline]
     pub fn get_encoder(&self) -> &Encoder {
         &self.encoder
     }
@@ -198,8 +190,8 @@ impl Session {
             pictureType: params.picture_type,
             ..Default::default()
         };
-        unsafe { (ENCODE_API.encode_picture)(self.encoder.ptr, &mut encode_pic_params) }
-            .result(&self.encoder)
+        unsafe { (ENCODE_API.encode_picture)((*self.encoder).ptr, &mut encode_pic_params) }
+            .result(&*self.encoder)
     }
 
     /// Send an EOS notifications to flush the encoder.
@@ -216,8 +208,8 @@ impl Session {
     /// should retry after a few milliseconds.
     pub fn end_of_stream(&self) -> Result<(), EncodeError> {
         let mut encode_pic_params = NV_ENC_PIC_PARAMS::end_of_stream();
-        unsafe { (ENCODE_API.encode_picture)(self.encoder.ptr, &mut encode_pic_params) }
-            .result(&self.encoder)
+        unsafe { (ENCODE_API.encode_picture)((*self.encoder).ptr, &mut encode_pic_params) }
+            .result(&*self.encoder)
     }
 }
 

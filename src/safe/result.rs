@@ -119,6 +119,11 @@ pub struct EncodeError {
 }
 
 impl EncodeError {
+    ///manuallay create a EncodeError.
+    pub fn new(kind: ErrorKind, string: Option<String>) -> Self {
+        Self { kind, string }
+    }
+
     /// Getter for the error kind.
     #[must_use]
     pub fn kind(&self) -> ErrorKind {

@@ -10,17 +10,9 @@ use cudarc::driver::CudaDevice;
 
 use super::{api::ENCODE_API, result::EncodeError, session::Session};
 use crate::sys::nvEncodeAPI::{
-    GUID,
-    NVENCAPI_VERSION,
-    NV_ENC_BUFFER_FORMAT,
-    NV_ENC_CONFIG,
-    NV_ENC_CONFIG_VER,
-    NV_ENC_DEVICE_TYPE,
-    NV_ENC_INITIALIZE_PARAMS,
-    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS,
-    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER,
-    NV_ENC_PRESET_CONFIG,
-    NV_ENC_PRESET_CONFIG_VER,
+    GUID, NVENCAPI_VERSION, NV_ENC_BUFFER_FORMAT, NV_ENC_CONFIG, NV_ENC_CONFIG_VER,
+    NV_ENC_DEVICE_TYPE, NV_ENC_INITIALIZE_PARAMS, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS,
+    NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER, NV_ENC_PRESET_CONFIG, NV_ENC_PRESET_CONFIG_VER,
     NV_ENC_TUNING_INFO,
 };
 
@@ -52,6 +44,10 @@ pub struct Encoder {
     // Used to make sure that CudaDevice stays alive while the Encoder does
     _device: Device,
 }
+
+//ptr is handle of encoder. so it is safe to have trait of Send and Sync.
+unsafe impl Send for Encoder {}
+unsafe impl Sync for Encoder {}
 
 /// The client must flush the encoder before freeing any resources.
 /// Do this by sending an EOS encode frame.
@@ -456,7 +452,7 @@ impl Encoder {
         unsafe { (ENCODE_API.initialize_encoder)(self.ptr, &mut initialize_params) }
             .result(&self)?;
         Ok(Session {
-            encoder: self,
+            encoder: Arc::new(self),
             width,
             height,
             buffer_format,
