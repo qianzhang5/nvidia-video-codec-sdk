@@ -1,3 +1,10 @@
+# Notice
+
+It is a fork of ViliamVadocz/nvidia-video-codec-sdk.
+https://github.com/ViliamVadocz/nvidia-video-codec-sdk.
+
+The code has been refactored and not fully tested yet. Please use caution!
+
 # NVIDIA Video Codec SDK
 
 [![crates.io](https://img.shields.io/crates/v/nvidia-video-codec-sdk?style=for-the-badge)](https://crates.io/crates/nvidia-video-codec-sdk)
