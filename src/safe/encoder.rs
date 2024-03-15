@@ -4,7 +4,7 @@
 //! encoder API. This module also defines builders for some of the parameter
 //! structs used by the interface.
 
-use std::{ffi::c_void, ptr, sync::Arc};
+use std::{ffi::c_void, mem::MaybeUninit, ptr, sync::Arc};
 
 use cudarc::driver::CudaDevice;
 
@@ -13,7 +13,7 @@ use crate::sys::nvEncodeAPI::{
     GUID, NVENCAPI_VERSION, NV_ENC_BUFFER_FORMAT, NV_ENC_CONFIG, NV_ENC_CONFIG_VER,
     NV_ENC_DEVICE_TYPE, NV_ENC_INITIALIZE_PARAMS, NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS,
     NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS_VER, NV_ENC_PRESET_CONFIG, NV_ENC_PRESET_CONFIG_VER,
-    NV_ENC_TUNING_INFO,
+    NV_ENC_SEQUENCE_PARAM_PAYLOAD, NV_ENC_SEQUENCE_PARAM_PAYLOAD_VER, NV_ENC_TUNING_INFO,
 };
 
 type Device = Arc<CudaDevice>;
@@ -458,5 +458,28 @@ impl Encoder {
             buffer_format,
             encode_guid: initialize_params.encodeGUID,
         })
+    }
+
+    /// get H264 SPS sequence parameter set and PPS picture paramter set,
+    /// which are needed in decoder and streaming such as rtp.
+    /// SPS and PPS are ready when a encoder is created.
+    pub fn get_sps_pps(&self) -> Result<Vec<u8>, EncodeError> {
+        let mut payload = NV_ENC_SEQUENCE_PARAM_PAYLOAD {
+            version: NV_ENC_SEQUENCE_PARAM_PAYLOAD_VER,
+            ..Default::default()
+        };
+
+        const BUF_SIZE: usize = 1024;
+        let mut output_len = 0u32;
+        let sps_pps_data = &mut [MaybeUninit::<u8>::uninit(); BUF_SIZE];
+        payload.spsppsBuffer = sps_pps_data.as_mut_ptr() as _;
+        payload.inBufferSize = BUF_SIZE as u32;
+        payload.outSPSPPSPayloadSize = &mut output_len as *mut u32;
+        unsafe { (ENCODE_API.get_sequence_params)(self.ptr, &mut payload) }.result(&self)?;
+        let sps_pps = unsafe {
+            std::mem::transmute::<&[MaybeUninit<u8>; BUF_SIZE], &[u8; BUF_SIZE]>(&sps_pps_data)
+        };
+        let res: Vec<u8> = sps_pps[..output_len as usize].to_vec();
+        Ok(res)
     }
 }
